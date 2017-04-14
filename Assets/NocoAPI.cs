@@ -25,6 +25,9 @@ namespace Noco
 		public String oauthExpirationDate = null;
 		public String oauthTokenType = null;
 
+		public delegate void NocoAPIAuthentificationDelegate(bool authorizationSucceeded);
+		public NocoAPIAuthentificationDelegate authentificationCompletionHandler;
+
 		public NocoAPI (String clientId, String clientsecret, String redirectUri = null)
 		{
 			this.clientId = clientId;
@@ -43,23 +46,28 @@ namespace Noco
 			//this.oauthExpirationDate = 10;
 		}
 
-		public IEnumerator Authenticate(String username, String password, String appName){
+		public IEnumerator Authenticate(String username, String password, String appName, NocoAPIAuthentificationDelegate completionHandler = null){
+			if (completionHandler != null) {
+				this.authentificationCompletionHandler += completionHandler;
+			}
 			if (username == null || username == "" || password == null || username == "") {
 				Debug.Log ("Missing credentials");
 				yield return null;
+				this.authentificationCompletionHandler (authorizationSucceeded: false);
 			} else {
 				// Authentification
 				Debug.Log("Noco Authentification...");
 				NocoOAuthAuthentificationRequest authentificationRequest = new NocoOAuthAuthentificationRequest ();
-				yield return authentificationRequest.Launch (username, password, appName);
-				while (authentificationRequest.callFinished != true) {
-					yield return null;
-				}
-				Debug.Log("Authentifiction finished");
-				this.oauthCode = authentificationRequest.code;			
+				yield return authentificationRequest.Launch (username, password, appName, oauthCode => {
+					Debug.Log("Authentifiction finished");
+					this.oauthCode = oauthCode;			
+					this.authentificationCompletionHandler (authorizationSucceeded: this.oauthCode != null);
+				});
 			}
 		}
+
 	}
+
 
 	public class NocoOAuthAuthentificationRequest
 	{
@@ -71,6 +79,9 @@ namespace Noco
 		public String code = null;
 		/// True if call is finished
 		public bool callFinished;
+
+		public delegate void NocoOAuthAuthentificationRequestDelegate(string oauthCode);
+		public NocoOAuthAuthentificationRequestDelegate loginCompletionHandler;
 
 		// See http://answers.unity3d.com/questions/792342/how-to-validate-ssl-certificates-when-using-httpwe.html
 		private static bool RemoteCertificateValidationCallback(
@@ -97,7 +108,10 @@ namespace Noco
 			return new X509Certificate();
 		}
 
-		public IEnumerator Launch(String username, String password, String appName) {
+		public IEnumerator Launch(String username, String password, String appName, NocoOAuthAuthentificationRequestDelegate completionHandler = null) {
+			if (completionHandler != null) {
+				this.loginCompletionHandler += completionHandler;
+			}
 			callFinished = false;
 			String host = "api.noco.tv";
 			String authorizationUrl = "/1.1/OAuth2/authorize.php?response_type=code&client_id="+appName+"&state=STATE";
@@ -121,8 +135,8 @@ namespace Noco
 				try {
 					sslStream.AuthenticateAsClient (host);//, new X509Certificate2Collection (), SslProtocols.Tls, true);
 					break;
-				} catch (Exception e){
-					Debug.Log ("ssl error");
+				} catch {
+					// Debug.Log ("ssl error" );
 					if (attempts <= 0) {
 						throw;
 					}
@@ -205,6 +219,9 @@ namespace Noco
 			//Debug.Log("Closed.");
 
 			callFinished = true;
+			if (this.loginCompletionHandler != null) {
+				this.loginCompletionHandler (oauthCode: this.code);
+			}
 			yield return null;
 		}
 	}

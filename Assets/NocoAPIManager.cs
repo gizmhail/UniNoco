@@ -20,13 +20,12 @@ public class NocoAPIManager : MonoBehaviour {
 		NocoAPI api = new NocoAPI (clientId: "", clientsecret: "");
 		String username = System.Environment.GetEnvironmentVariable ("NOCO_USER");
 		String password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
-		yield return api.Authenticate(username, password, "NoLibTV");
-
-		if (api.oauthCode != null) {
-			Debug.Log ("oauthCode: " + api.oauthCode);
-		} else {
-			Debug.Log ("Authentication failed");
-		}
-
+		yield return api.Authenticate(username, password, "NoLibTV", authSucess => {
+			if (authSucess) {
+				Debug.Log ("oauthCode: " + api.oauthCode);
+			} else {
+				Debug.Log ("Authentication failed");
+			}			
+		});
 	}
 }
