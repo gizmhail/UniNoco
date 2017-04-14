@@ -8,7 +8,7 @@ public class NocoAPIManager : MonoBehaviour {
 	
 	// Use this for initialization
 	void Start () {
-		StartCoroutine ( authenticate() );
+		StartCoroutine ( Authenticate() );
 	}
 	
 	// Update is called once per frame
@@ -16,19 +16,14 @@ public class NocoAPIManager : MonoBehaviour {
 		
 	}
 
-	IEnumerator authenticate(){
-		NocoOAuthAuthentificationRequest request = new NocoOAuthAuthentificationRequest ();
+	IEnumerator Authenticate(){
+		NocoAPI api = new NocoAPI (clientId: "", clientsecret: "");
 		String username = System.Environment.GetEnvironmentVariable ("NOCO_USER");
 		String password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
-		String redirectionUri = "http://nolife.poivre.name/oauth/";
-		yield return request.Launch(username, password, "NoLibTV");
+		yield return api.Authenticate(username, password, "NoLibTV");
 
-		if (request.redirection != null) {
-			Debug.Log ("Redirection: " + request.redirection);
-			String code = request.redirection.Replace (redirectionUri + "?code=", "");
-			code = code.Replace ("&state=STATE", "");
-			Debug.Log ("Code: " + code);
-			Debug.Log ("Full answer: " + request.result);
+		if (api.oauthCode != null) {
+			Debug.Log ("oauthCode: " + api.oauthCode);
 		} else {
 			Debug.Log ("Authentication failed");
 		}

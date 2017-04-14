@@ -25,7 +25,7 @@ namespace Noco
 		public String oauthExpirationDate = null;
 		public String oauthTokenType = null;
 
-		public NocoAPI (String clientId, String clientsecret, String redirectUri)
+		public NocoAPI (String clientId, String clientsecret, String redirectUri = null)
 		{
 			this.clientId = clientId;
 			this.clientSecret = clientsecret;
@@ -42,14 +42,38 @@ namespace Noco
 			//Debug to test refresh token
 			//this.oauthExpirationDate = 10;
 		}
+
+		public IEnumerator Authenticate(String username, String password, String appName){
+			if (username == null || username == "" || password == null || username == "") {
+				Debug.Log ("Missing credentials");
+				yield return null;
+			} else {
+				// Authentification
+				Debug.Log("Noco Authentification...");
+				NocoOAuthAuthentificationRequest authentificationRequest = new NocoOAuthAuthentificationRequest ();
+				yield return authentificationRequest.Launch (username, password, appName);
+				while (authentificationRequest.callFinished != true) {
+					yield return null;
+				}
+				Debug.Log("Authentifiction finished");
+				this.oauthCode = authentificationRequest.code;			
+			}
+		}
 	}
 
 	public class NocoOAuthAuthentificationRequest
 	{
+		/// Auth call raw result (usually not needed)
 		public String result;
+		/// OAuth redirection url containing OAuth code  (usually not needed)
 		public String redirection = null;
+		/// OAuth code in case of successfull login
+		public String code = null;
+		/// True if call is finished
+		public bool callFinished;
 
-		public static bool CertificateValidationCallback(
+		// See http://answers.unity3d.com/questions/792342/how-to-validate-ssl-certificates-when-using-httpwe.html
+		private static bool RemoteCertificateValidationCallback(
 			object sender,
 			X509Certificate certificate,
 			X509Chain chain,
@@ -63,20 +87,48 @@ namespace Noco
 			return true;
 		}
 
+		private static X509Certificate userCertificateSelectionCallback(
+			object sender, 
+			string targetHost, 
+			X509CertificateCollection localCertificates, 
+			X509Certificate remoteCertificate, 
+			string[] acceptableIssuers)
+		{
+			return new X509Certificate();
+		}
+
 		public IEnumerator Launch(String username, String password, String appName) {
+			callFinished = false;
 			String host = "api.noco.tv";
 			String authorizationUrl = "/1.1/OAuth2/authorize.php?response_type=code&client_id="+appName+"&state=STATE";
-			String body = "username=" + username + "&password=" + password + "&login=1";
+			String body = "username=" + WWW.EscapeURL(username) + "&password=" + WWW.EscapeURL(password) + "&login=1";
 			int contentLength = System.Text.Encoding.UTF8.GetBytes(body).Length;
 
 			TcpClient client = new TcpClient(host, 443);
 			NetworkStream networkStream = client.GetStream();
 			SslStream sslStream = new SslStream(networkStream
 				,false
-				,new RemoteCertificateValidationCallback(CertificateValidationCallback)
+				,new RemoteCertificateValidationCallback(RemoteCertificateValidationCallback)
+				, new LocalCertificateSelectionCallback(userCertificateSelectionCallback)
 			);
 			//Debug.Log("Authenticating...");
-			sslStream.AuthenticateAsClient (host);//, new X509Certificate2Collection (), SslProtocols.Tls, true);
+
+			// SSL might fail
+			// See http://stackoverflow.com/questions/16270347/mono-https-exception-the-authentication-or-decryption-has-failed
+			int attempts = 3;
+			while (attempts > 0) {
+				attempts--;
+				try {
+					sslStream.AuthenticateAsClient (host);//, new X509Certificate2Collection (), SslProtocols.Tls, true);
+					break;
+				} catch (Exception e){
+					Debug.Log ("ssl error");
+					if (attempts <= 0) {
+						throw;
+					}
+				}
+			}
+
 			//Debug.Log("Authent done");
 			while (!sslStream.IsAuthenticated) {
 				//Debug.Log("Not yet authenticated...");
@@ -113,6 +165,18 @@ namespace Noco
 						String redirectionHeader = "Location: ";
 						if(line.StartsWith(redirectionHeader)){
 							this.redirection = line.Substring (redirectionHeader.Length, line.Length - redirectionHeader.Length);
+							string[] redirectionParts = this.redirection.Split ('?');
+							if (redirectionParts.Length >= 2) {
+								string query = redirectionParts [1];
+								string[] paramsString = query.Split ('&');
+								foreach(string paramString in paramsString) {
+									string[] paramValues = paramString.Split ('=');
+									if(paramValues.Length >= 2 && paramValues[0] == "code"){
+										this.code = paramValues [1];
+									}
+								}
+									
+							}
 						}
 						if (result != "") {
 							result = result + "\n";
@@ -140,6 +204,7 @@ namespace Noco
 			client.Close();
 			//Debug.Log("Closed.");
 
+			callFinished = true;
 			yield return null;
 		}
 	}
