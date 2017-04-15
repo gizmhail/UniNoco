@@ -37,14 +37,15 @@ namespace Noco
 		public String oauthCode = null;
 		public AccessTokenDescriptor oauthAccessToken = null;
 
-		public delegate void NocoAPIAuthentificationDelegate(bool authorizationSucceeded);
-		public NocoAPIAuthentificationDelegate authentificationCompletionHandler;
-
 		public NocoAPI (String clientId, String clientsecret, String redirectUri = null)
 		{
 			this.clientId = clientId;
 			this.clientSecret = clientsecret;
 			this.redirectUri = redirectUri;
+			string tokenDescription = PlayerPrefs.GetString ("NocoAccessToken");
+			if (tokenDescription != null) {
+				this.oauthAccessToken = JsonUtility.FromJson<AccessTokenDescriptor> (tokenDescription);
+			}
 		}
 
 		private void loadCachedOAuthInfo()
@@ -52,14 +53,15 @@ namespace Noco
 			this.oauthAccessToken = null;
 		}
 
-		public IEnumerator Authenticate(String username, String password, NocoAPIAuthentificationDelegate completionHandler = null){
-			if (completionHandler != null) {
-				this.authentificationCompletionHandler += completionHandler;
-			}
+		public bool IsAuthenticated(){
+			//TODO Add expiration date check
+			return this.oauthAccessToken != null && this.oauthAccessToken.access_token != null;
+		}
+
+		public IEnumerator Authenticate(String username, String password){
 			if (username == null || username == "" || password == null || username == "") {
 				Debug.Log ("Missing credentials");
 				yield return null;
-				this.authentificationCompletionHandler (authorizationSucceeded: false);
 			} else {
 				// Authentification
 				if(debugAuthentification) Debug.Log("Noco Authentification...");
@@ -69,14 +71,13 @@ namespace Noco
 				this.oauthCode = authentificationRequest.code;	
 				if (this.oauthCode != null) {
 					yield return FetchAccessTokenFromCode ();
-					if (this.authentificationCompletionHandler != null) {
-						bool authSuccess = this.oauthAccessToken != null && this.oauthAccessToken.access_token != null;
-						this.authentificationCompletionHandler (authorizationSucceeded: authSuccess);
+					if (IsAuthenticated()) {
+						PlayerPrefs.SetString ("NocoAccessToken", this.oauthAccessToken.ToString ());
+						PlayerPrefs.Save ();
 					}
 				} else {
 					Debug.Log("Authentifiction failed");
 				}
-
 			}
 		}
 
@@ -171,7 +172,6 @@ namespace Noco
 					sslStream.AuthenticateAsClient (host);//, new X509Certificate2Collection (), SslProtocols.Tls, true);
 					break;
 				} catch {
-					// Debug.Log ("ssl error" );
 					if (attempts <= 0) {
 						throw;
 					}

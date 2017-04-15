@@ -22,13 +22,17 @@ public class NocoAPIManager : MonoBehaviour {
 		NocoAPI api = new NocoAPI (clientId: clientId, clientsecret: clientsecret);
 		String username = System.Environment.GetEnvironmentVariable ("NOCO_USER");
 		String password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
-		yield return api.Authenticate(username, password, authSucess => {
-			if (authSucess) {
-				Debug.Log ("oauthCode: " + api.oauthCode);
-				Debug.Log ("oauthAccessTokenInfo: " + api.oauthAccessToken);
-			} else {
-				Debug.Log ("Authentification failed");
-			}			
-		});
+		if (!api.IsAuthenticated ()) {
+			Debug.Log ("Loging in ...");
+			yield return api.Authenticate (username, password);
+		} else {
+			Debug.Log ("Already logged in");
+		}
+		if (api.IsAuthenticated() ) {
+			Debug.Log ("oauthCode: " + api.oauthCode);
+			Debug.Log ("oauthAccessTokenInfo: " + api.oauthAccessToken);
+		} else {
+			Debug.Log ("Authentification failed");
+		}			
 	}
 }
