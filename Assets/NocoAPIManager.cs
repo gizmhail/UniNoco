@@ -17,14 +17,17 @@ public class NocoAPIManager : MonoBehaviour {
 	}
 
 	IEnumerator Authenticate(){
-		NocoAPI api = new NocoAPI (clientId: "", clientsecret: "");
+		String clientId = System.Environment.GetEnvironmentVariable ("NOCO_CLIENTID");
+		String clientsecret = System.Environment.GetEnvironmentVariable ("NOCO_CLIENTSECRET");
+		NocoAPI api = new NocoAPI (clientId: clientId, clientsecret: clientsecret);
 		String username = System.Environment.GetEnvironmentVariable ("NOCO_USER");
 		String password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
-		yield return api.Authenticate(username, password, "NoLibTV", authSucess => {
+		yield return api.Authenticate(username, password, authSucess => {
 			if (authSucess) {
 				Debug.Log ("oauthCode: " + api.oauthCode);
+				Debug.Log ("oauthAccessTokenInfo: " + api.oauthAccessToken);
 			} else {
-				Debug.Log ("Authentication failed");
+				Debug.Log ("Authentification failed");
 			}			
 		});
 	}

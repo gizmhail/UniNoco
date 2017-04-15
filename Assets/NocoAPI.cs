@@ -12,18 +12,30 @@ using System.Security.Authentication;
 
 namespace Noco
 {
+	[Serializable]
+	public class AccessTokenDescriptor {
+		public string access_token = null;
+		public int expires_in = 0;
+		public string token_type = null;
+		public string scope = null;
+		public string refresh_token = null;
+
+		public override string ToString(){
+			return JsonUtility.ToJson(this);
+		}
+	}
+
 	public class NocoAPI
 	{
+		public bool debugAuthentification = false;
+
 		// Credentials
 		public String clientId = null;
 		public String clientSecret = null;
 		public String redirectUri = null;
 		// Cached 
 		public String oauthCode = null;
-		public String oauthAccessToken = null;
-		public String oauthRefreshToken = null;
-		public String oauthExpirationDate = null;
-		public String oauthTokenType = null;
+		public AccessTokenDescriptor oauthAccessToken = null;
 
 		public delegate void NocoAPIAuthentificationDelegate(bool authorizationSucceeded);
 		public NocoAPIAuthentificationDelegate authentificationCompletionHandler;
@@ -38,15 +50,9 @@ namespace Noco
 		private void loadCachedOAuthInfo()
 		{
 			this.oauthAccessToken = null;
-			this.oauthRefreshToken = null;
-			this.oauthExpirationDate = null;
-			this.oauthTokenType = null;
-
-			//Debug to test refresh token
-			//this.oauthExpirationDate = 10;
 		}
 
-		public IEnumerator Authenticate(String username, String password, String appName, NocoAPIAuthentificationDelegate completionHandler = null){
+		public IEnumerator Authenticate(String username, String password, NocoAPIAuthentificationDelegate completionHandler = null){
 			if (completionHandler != null) {
 				this.authentificationCompletionHandler += completionHandler;
 			}
@@ -56,17 +62,57 @@ namespace Noco
 				this.authentificationCompletionHandler (authorizationSucceeded: false);
 			} else {
 				// Authentification
-				Debug.Log("Noco Authentification...");
+				if(debugAuthentification) Debug.Log("Noco Authentification...");
 				NocoOAuthAuthentificationRequest authentificationRequest = new NocoOAuthAuthentificationRequest ();
-				yield return authentificationRequest.Launch (username, password, appName, oauthCode => {
-					Debug.Log("Authentifiction finished");
-					this.oauthCode = oauthCode;			
-					this.authentificationCompletionHandler (authorizationSucceeded: this.oauthCode != null);
-				});
+				yield return authentificationRequest.Launch (username, password, this.clientId);
+				if(debugAuthentification) Debug.Log("Authentifiction call finished");
+				this.oauthCode = authentificationRequest.code;	
+				if (this.oauthCode != null) {
+					yield return FetchAccessTokenFromCode ();
+					if (this.authentificationCompletionHandler != null) {
+						bool authSuccess = this.oauthAccessToken != null && this.oauthAccessToken.access_token != null;
+						this.authentificationCompletionHandler (authorizationSucceeded: authSuccess);
+					}
+				} else {
+					Debug.Log("Authentifiction failed");
+				}
+
 			}
 		}
 
+		public IEnumerator FetchAccessTokenFromCode() {
+			string authenticationStr = this.clientId + ":" + this.clientSecret;
+			string urlStr = "https://api.noco.tv/1.1/OAuth2/token.php";
+
+			List<IMultipartFormSection> postData = new List<IMultipartFormSection>();
+			postData.Add( new MultipartFormDataSection("grant_type=authorization_code&code=" + this.oauthCode) );
+
+			var authenticationBytes = System.Text.Encoding.UTF8.GetBytes(authenticationStr);
+			string authenticationB64 = System.Convert.ToBase64String(authenticationBytes);
+
+			/*
+			UnityWebRequest request = UnityWebRequest.Post(urlStr, postData);
+			request.SetRequestHeader ("Authorization", "Basic " + authenticationB64);
+
+			yield return request.Send();
+			string result = request.downloadHandler.text;
+			*/
+
+			WWWForm form = new WWWForm();
+			form.AddField("grant_type", "authorization_code");
+			form.AddField("code", this.oauthCode);
+			Dictionary<string, string> headers = form.headers;
+			headers ["Authorization"] = "Basic " + authenticationB64;
+			byte[] rawData = form.data;
+
+			WWW request = new WWW (urlStr, rawData, headers);
+			yield return request;
+			string result = request.text;
+			this.oauthAccessToken = JsonUtility.FromJson <AccessTokenDescriptor>(result);
+			if(debugAuthentification) Debug.Log("Token descriptor: "+this.oauthAccessToken);
+		}
 	}
+
 
 
 	public class NocoOAuthAuthentificationRequest
@@ -80,9 +126,6 @@ namespace Noco
 		/// True if call is finished
 		public bool callFinished;
 
-		public delegate void NocoOAuthAuthentificationRequestDelegate(string oauthCode);
-		public NocoOAuthAuthentificationRequestDelegate loginCompletionHandler;
-
 		// See http://answers.unity3d.com/questions/792342/how-to-validate-ssl-certificates-when-using-httpwe.html
 		private static bool RemoteCertificateValidationCallback(
 			object sender,
@@ -91,10 +134,6 @@ namespace Noco
 			SslPolicyErrors sslPolicyErrors)
 		{
 			Debug.Log ("[Warning] Using unsafe certification");
-			// Debug.Log (sender);
-			// Debug.Log (certificate);
-			// Debug.Log (chain);
-			// Debug.Log (sslPolicyErrors);
 			return true;
 		}
 
@@ -108,10 +147,7 @@ namespace Noco
 			return new X509Certificate();
 		}
 
-		public IEnumerator Launch(String username, String password, String appName, NocoOAuthAuthentificationRequestDelegate completionHandler = null) {
-			if (completionHandler != null) {
-				this.loginCompletionHandler += completionHandler;
-			}
+		public IEnumerator Launch(String username, String password, String appName) {
 			callFinished = false;
 			String host = "api.noco.tv";
 			String authorizationUrl = "/1.1/OAuth2/authorize.php?response_type=code&client_id="+appName+"&state=STATE";
@@ -125,9 +161,8 @@ namespace Noco
 				,new RemoteCertificateValidationCallback(RemoteCertificateValidationCallback)
 				, new LocalCertificateSelectionCallback(userCertificateSelectionCallback)
 			);
-			//Debug.Log("Authenticating...");
 
-			// SSL might fail
+			// SSL might fail, hence the retries
 			// See http://stackoverflow.com/questions/16270347/mono-https-exception-the-authentication-or-decryption-has-failed
 			int attempts = 3;
 			while (attempts > 0) {
@@ -143,9 +178,7 @@ namespace Noco
 				}
 			}
 
-			//Debug.Log("Authent done");
 			while (!sslStream.IsAuthenticated) {
-				//Debug.Log("Not yet authenticated...");
 				yield return null;
 			}
 			StreamReader reader = new StreamReader(sslStream);
@@ -163,13 +196,10 @@ namespace Noco
 			requestData = requestData + "\r\n";
 			writer.Write (requestData);
 			writer.Flush ();
-			//Debug.Log ("Request:");
-			//Debug.Log(requestData);
 			result = "";
 			String lastLine = null;
 			while (true) {
 				if (!client.Connected) {
-					//Debug.Log ("Disconnected");
 					break;
 				}
 					
@@ -200,29 +230,17 @@ namespace Noco
 							break;
 						}
 						lastLine = line;
-
-						//Debug.Log ("Received: >" + line + "<");
 						result = result + line;
 					} else {
 						break;
 					}
 				}
-				//Debug.Log ("No data ...");
 				yield return null;
-
 			}
-			//Debug.Log (data);
 
-			//Debug.Log("Closing...");
 			sslStream.Close();
 			client.Close();
-			//Debug.Log("Closed.");
-
 			callFinished = true;
-			if (this.loginCompletionHandler != null) {
-				this.loginCompletionHandler (oauthCode: this.code);
-			}
-			yield return null;
 		}
 	}
 }
