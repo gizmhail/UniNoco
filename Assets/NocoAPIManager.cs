@@ -24,6 +24,8 @@ public class NocoAPIManager : MonoBehaviour {
 		String password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
 
 		NocoAPI api = new NocoAPI (clientId: clientId, clientsecret: clientsecret);
+		yield return api.LoadArchivedAccessToken ();
+
 		bool forceAuthent = false;
 		if (forceAuthent || !api.IsAuthenticated ()) {
 			Debug.Log ("Loging in ...");

@@ -195,6 +195,7 @@ namespace Noco
 		public AccessTokenDescriptor oauthAccessToken = null;
 		public String clientId = null;
 		public String clientSecret = null;
+		public string result = null;
 
 		public NocoOAuthAccessTokenRequest (String clientId, String clientSecret) {
 			this.clientId = clientId;
@@ -227,10 +228,9 @@ namespace Noco
 			Dictionary<string, string> headers = form.headers;
 			headers ["Authorization"] = "Basic " + authenticationB64;
 			byte[] rawData = form.data;
-
 			WWW request = new WWW (urlStr, rawData, headers);
 			yield return request;
-			string result = request.text;
+			result = request.text;
 			this.oauthAccessToken = JsonUtility.FromJson <AccessTokenDescriptor>(result);
 		}
 	}

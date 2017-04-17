@@ -35,10 +35,18 @@ namespace Noco
 			this.clientId = clientId;
 			this.clientSecret = clientsecret;
 			this.redirectUri = redirectUri;
+			if(clientId == "" || clientId == null || clientSecret == "" || clientSecret == null){
+				Debug.Log ("[NocoAPI] Missing credentials");
+			}
+		}
+
+		public IEnumerator LoadArchivedAccessToken()
+		{
 			string tokenDescription = PlayerPrefs.GetString ("NocoAccessToken");
 			// NocoAccessTokenExpirationTime is a string containing, in unix timestamp format, the token expiration date
 			string tokenExpirationTimeStr = PlayerPrefs.GetString ("NocoAccessTokenExpirationTime");
 			double tokenExpirationTime = 0;
+			tokenExpirationTimeStr = tokenExpirationTimeStr.Replace (",", ".");
 			Double.TryParse (tokenExpirationTimeStr, out tokenExpirationTime);
 
 			if (double.IsNaN(tokenExpirationTime) || double.IsInfinity(tokenExpirationTime)) {
@@ -56,8 +64,10 @@ namespace Noco
 					this.oauthAccessToken = previousTokenDescriptor;
 				} else {
 					Debug.Log ("Trying to use refresh token after access token lapsing");
-					NocoOAuthAccessTokenRequest request = new NocoOAuthAccessTokenRequest (clientId, clientSecret);
-					request.FetchAccessTokenFromRefreshToken (previousTokenDescriptor.refresh_token);
+					NocoOAuthAccessTokenRequest request = new NocoOAuthAccessTokenRequest (this.clientId, this.clientSecret);
+					yield return request.FetchAccessTokenFromRefreshToken (previousTokenDescriptor.refresh_token);
+					if (debugAuthentification)
+						Debug.Log ("Refresh token call result:" + request.result);
 					this.oauthAccessToken = request.oauthAccessToken;
 					if (IsAuthenticated()) {
 						this.oauthAccessToken.Save ();
