@@ -7,6 +7,11 @@ using Noco;
 
 public class NocoAPIManager : MonoBehaviour {
 	public VideoPlayer videoPLayer;
+	public String clientId = null;
+	public String clientsecret = null;
+	public String username = null;
+	public String password = null;
+
 	// Use this for initialization
 	void Start () {
 		StartCoroutine ( Authenticate() );
@@ -17,11 +22,23 @@ public class NocoAPIManager : MonoBehaviour {
 		
 	}
 
+	void CheckCredentials(){
+		if(clientId == "" || clientId == null){
+			clientId = System.Environment.GetEnvironmentVariable ("NOCO_CLIENTID");
+		}
+		if(clientsecret == "" || clientsecret == null){
+			clientsecret = System.Environment.GetEnvironmentVariable ("NOCO_CLIENTSECRET");
+		}
+		if(username == "" || username == null){
+			username = System.Environment.GetEnvironmentVariable ("NOCO_USER");
+		}
+		if(password == "" || password == null){
+			password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
+		}			
+	}
+
 	IEnumerator Authenticate(){
-		String clientId = System.Environment.GetEnvironmentVariable ("NOCO_CLIENTID");
-		String clientsecret = System.Environment.GetEnvironmentVariable ("NOCO_CLIENTSECRET");
-		String username = System.Environment.GetEnvironmentVariable ("NOCO_USER");
-		String password = System.Environment.GetEnvironmentVariable ("NOCO_PASSWORD");
+		CheckCredentials ();
 
 		NocoAPI api = new NocoAPI (clientId: clientId, clientsecret: clientsecret);
 		yield return api.LoadArchivedAccessToken ();

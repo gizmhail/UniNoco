@@ -141,7 +141,7 @@ VideoPlayer:
   m_AspectRatio: 5
   m_DataSource: 0
   m_PlaybackSpeed: 1
-  m_AudioOutputMode: 2
+  m_AudioOutputMode: 1
   m_TargetAudioSources: []
   m_DirectAudioVolumes: []
   m_Url: 
@@ -272,7 +272,7 @@ GameObject:
   - component: {fileID: 1627206804}
   - component: {fileID: 1627206803}
   m_Layer: 0
-  m_Name: Plane
+  m_Name: PlayerPlane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -461,6 +461,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   videoPLayer: {fileID: 43582610}
+  clientId: 
+  clientsecret: 
+  username: 
+  password: 
 --- !u!4 &1846706345
 Transform:
   m_ObjectHideFlags: 0
