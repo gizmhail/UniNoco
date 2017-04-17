@@ -9,6 +9,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
+using EasyCaching;
 
 namespace Noco
 {
@@ -42,37 +43,31 @@ namespace Noco
 
 		public IEnumerator LoadArchivedAccessToken()
 		{
-			string tokenDescription = PlayerPrefs.GetString ("NocoAccessToken");
-			// NocoAccessTokenExpirationTime is a string containing, in unix timestamp format, the token expiration date
-			string tokenExpirationTimeStr = PlayerPrefs.GetString ("NocoAccessTokenExpirationTime");
-			double tokenExpirationTime = 0;
-			tokenExpirationTimeStr = tokenExpirationTimeStr.Replace (",", ".");
-			Double.TryParse (tokenExpirationTimeStr, out tokenExpirationTime);
-
-			if (double.IsNaN(tokenExpirationTime) || double.IsInfinity(tokenExpirationTime)) {
-				tokenExpirationTime = 0;
-			}
-
-			var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-			double currentTime = (System.DateTime.UtcNow - epoch).TotalSeconds;
-			double remainingValidity = tokenExpirationTime - currentTime;
-
+			CachedString cache = new CachedString ("NocoAccessToken");
+			string tokenDescription = cache.GetString ();
 			if (tokenDescription != null) {
 				AccessTokenDescriptor previousTokenDescriptor = JsonUtility.FromJson<AccessTokenDescriptor> (tokenDescription);
-				if (remainingValidity > 0) {
-					Debug.Log ("Access token still valid for " + remainingValidity + " seconds");
+				if (cache.IsValid()) {
+					if (debugAuthentification) {
+						Debug.Log ("Access token still valid for " + cache.RemainingValidity () + " seconds");
+					}
 					this.oauthAccessToken = previousTokenDescriptor;
-				} else {
-					Debug.Log ("Trying to use refresh token after access token lapsing");
+				} else if(previousTokenDescriptor != null ) {
+					if (debugAuthentification) {
+						Debug.Log ("Trying to use refresh token after access token lapsing " + tokenDescription);
+					}
 					NocoOAuthAccessTokenRequest request = new NocoOAuthAccessTokenRequest (this.clientId, this.clientSecret);
 					yield return request.FetchAccessTokenFromRefreshToken (previousTokenDescriptor.refresh_token);
-					if (debugAuthentification)
+					if (debugAuthentification) {
 						Debug.Log ("Refresh token call result:" + request.result);
+					}
 					this.oauthAccessToken = request.oauthAccessToken;
 					if (IsAuthenticated()) {
+						if (debugAuthentification) {
+							Debug.Log ("Refresh token succed: new access token found: " + this.oauthAccessToken);
+						}
 						this.oauthAccessToken.Save ();
 					}
-
 				}
 			}
 		}

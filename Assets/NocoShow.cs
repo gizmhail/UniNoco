@@ -14,6 +14,11 @@ namespace Noco
 		override protected void Parse(){
 			this.showSet = NocoShowsSet.FromJSONArray (this.result);
 		}
+
+		override protected int RequestKindCacheValidity(){
+			return 3600*5;
+		}
+
 	}
 
 	[Serializable]

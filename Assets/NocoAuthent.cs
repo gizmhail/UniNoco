@@ -10,6 +10,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
+using EasyCaching;
 
 namespace Noco
 {
@@ -34,13 +35,8 @@ namespace Noco
 		/// </summary>
 		public void Save() {
 			if (this.access_token != null) {
-				DateTime expirationDate = System.DateTime.UtcNow + new TimeSpan (0, 0, this.expires_in);
-				var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-				double expirationUnixTime = (expirationDate - epoch).TotalSeconds;
-
-				PlayerPrefs.SetString ("NocoAccessToken", this.ToString ());
-				PlayerPrefs.SetString ("NocoAccessTokenExpirationTime", expirationUnixTime.ToString());
-				PlayerPrefs.Save ();
+				CachedString cache = new CachedString ("NocoAccessToken");
+				cache.Save(this.ToString (), this.expires_in);
 			}
 		}
 	}
