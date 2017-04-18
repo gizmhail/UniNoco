@@ -69,7 +69,7 @@ public class NocoAPIManager : MonoBehaviour {
 				Debug.Log (show.show_resume);
 				i++;
 			}
-			/*
+
 			yield return new WaitForSeconds (1);
 
 			if (latestShow != null) {
@@ -80,7 +80,6 @@ public class NocoAPIManager : MonoBehaviour {
 				videoPLayer.url = videoRequest.video.file;
 				videoPLayer.Play ();			
 			}
-			*/
 		} else {
 			Debug.Log ("Authentification failed");
 		}			
