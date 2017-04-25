@@ -1,5 +1,15 @@
+Noco Virtual reality client.
 Unity library for noco.tv connection 
-Will be used in Noco Virtual reality client.
+
+
+Licence
+==========
+MIT license
+
+Assets
+--------------
+If unspecified, all assets are the property of Noco and used in iNoco with their agreement. You have to contact Noco (noco.tv) before reusing them, and before any new release using these assets.
+
 
 Status
 ===========
