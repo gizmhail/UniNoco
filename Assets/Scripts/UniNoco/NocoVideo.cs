@@ -20,7 +20,7 @@ namespace Noco
 	{
 		public NocoVideo video = null;
 
-		public NocoVideoRequest(NocoAPI api, int showId, string qualityKey = "LQ"/*HQ*/, string audioLang = "fr") : base(api){
+		public NocoVideoRequest(NocoAPI api, int showId, string qualityKey = "HQ"/*LQ*/, string audioLang = "fr") : base(api){
 			this.queryStr = String.Format("/shows/{0}/video/{1}/{2}", showId, qualityKey, audioLang);
 		}	
 
