@@ -53,6 +53,11 @@ namespace Noco
 		/// True if call is finished
 		public bool callFinished;
 
+		private const string handshakeCacheTimeoutKey = "MONO_TLS_SESSION_CACHE_TIMEOUT";
+
+		private RemoteCertificateValidationCallback defaultCertificateValidationCallback;
+		private string handshakeCacheTimeoutValue;
+
 		// See http://answers.unity3d.com/questions/792342/how-to-validate-ssl-certificates-when-using-httpwe.html
 		private static bool RemoteCertificateValidationCallback(
 			object sender,
@@ -75,6 +80,24 @@ namespace Noco
 			return new X509Certificate();
 		}
 
+		private void PrepareNetwork()
+		{
+			// Sometimes, SslStream do not take into account its RemoteCertificateValidationCallback param
+			// Hence this global setting to check if it correct those cases.
+			defaultCertificateValidationCallback = ServicePointManager.ServerCertificateValidationCallback;
+			ServicePointManager.ServerCertificateValidationCallback = RemoteCertificateValidationCallback;
+
+			// Problem with handshake cache can occurs. See https://bugzilla.xamarin.com/show_bug.cgi?id=19141
+			handshakeCacheTimeoutValue = Environment.GetEnvironmentVariable (handshakeCacheTimeoutKey);
+			Environment.SetEnvironmentVariable (handshakeCacheTimeoutKey, "0");
+		}
+
+		private void RestoreNetworkNormalState()
+		{
+			ServicePointManager.ServerCertificateValidationCallback = defaultCertificateValidationCallback;
+			Environment.SetEnvironmentVariable (handshakeCacheTimeoutKey, handshakeCacheTimeoutValue);
+		}
+
 		public IEnumerator Launch(String username, String password, String appName) {
 			callFinished = false;
 			String host = Noco.Configuration.baseUrl;
@@ -82,42 +105,16 @@ namespace Noco
 			String body = "username=" + WWW.EscapeURL(username) + "&password=" + WWW.EscapeURL(password) + "&login=1";
 			int contentLength = System.Text.Encoding.UTF8.GetBytes(body).Length;
 
-			// Sometimes, SslStream do not take into account its RemoteCertificateValidationCallback param
-			// Hence this global setting to check if it correct those cases.
-			RemoteCertificateValidationCallback defaultCertificateValidationCallback = ServicePointManager.ServerCertificateValidationCallback;
-			ServicePointManager.ServerCertificateValidationCallback = RemoteCertificateValidationCallback;
+			PrepareNetwork ();
 
 			TcpClient client = null;
 			NetworkStream networkStream = null;
 			SslStream sslStream = null;
 
-			// SSL might fail, hence the retries
-			// See http://stackoverflow.com/questions/16270347/mono-https-exception-the-authentication-or-decryption-has-failed
-			int attempts = 6;
-			while (attempts > 0) {
-				attempts--;
-				try {
-					client = new TcpClient(host, 443);
-					networkStream = client.GetStream();
-					sslStream = new SslStream(networkStream
-						,false
-						,new RemoteCertificateValidationCallback(RemoteCertificateValidationCallback)
-						, new LocalCertificateSelectionCallback(userCertificateSelectionCallback)
-					);
-					sslStream.AuthenticateAsClient (host);//, new X509Certificate2Collection (), SslProtocols.Tls, true);
-					break;
-				} catch (Exception e) {
-					sslStream.Close ();
-					networkStream.Close ();
-					client.Close ();
-					Debug.Log (e.GetType() + " " + e);
-					if (attempts <= 0) {
-						Debug.Log ("Reached max number of SSL retry");
-						ServicePointManager.ServerCertificateValidationCallback = defaultCertificateValidationCallback;
-						throw;
-					}
-				}
-			}
+			client = new TcpClient(host, 443);
+			networkStream = client.GetStream();
+			sslStream = new SslStream(networkStream,false);
+			sslStream.AuthenticateAsClient (host);//, new X509Certificate2Collection (), SslProtocols.Tls, true);
 
 			while (!sslStream.IsAuthenticated) {
 				yield return null;
@@ -183,7 +180,7 @@ namespace Noco
 			networkStream.Close ();
 			client.Close();
 			callFinished = true;
-			ServicePointManager.ServerCertificateValidationCallback = defaultCertificateValidationCallback;
+			RestoreNetworkNormalState();
 		}
 	}
 
