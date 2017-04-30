@@ -57,7 +57,9 @@ namespace EasyCaching
 			}
 			if (useCached)
 			{
-				string pathforwww = "file://" + filePath;
+				string pathforwww = "file:///" + filePath;
+				if (debug)
+					Debug.Log ("[CachedImage] Loading cached file" + pathforwww + "("+filePath+")");
 				this.www = new WWW(pathforwww);
 			}
 			else
@@ -83,7 +85,7 @@ namespace EasyCaching
 			{
 				if (!web)
 				{
-					File.Delete(filePath);
+					//File.Delete(filePath);
 				}
 				Debug.Log("[CachedWWW] Web request error: " + this.www.error);
 			}
