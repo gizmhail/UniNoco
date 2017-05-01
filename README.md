@@ -4,7 +4,15 @@ Unity library for noco.tv connection
 
 Licence
 ==========
+Main code
+----------------
 MIT license
+
+Third party components
+----------------
+OVR/ and OvrAvatar/ content provided and licensed by Oculus, and stored here for convenience.
+To find and download the latest versions, please see https://developer.oculus.com/downloads/unity/
+
 
 Assets
 --------------
